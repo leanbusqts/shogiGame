@@ -4,8 +4,8 @@
 *Specified as tuples.
 """
 
-SENTE = "Sente"  # Letras MAYUSCULAS, es quien comienza el juego.
-GOTE = "Gote"  # Letras minusculas.
+SENTE = "SENTE"  # Letras MAYUSCULAS, es quien comienza el juego.
+GOTE = "GOTE"  # Letras minusculas.
 
 """Pieces
 King K: "♔", Gold G: "♕", Silver S: "♕", Knight N: "♘", Lance L: "♗", Bishop B: "♗", Rook R: "♖", Pawn P: "♙"
@@ -46,6 +46,7 @@ class Game:
         while True:
             self.printBoard()
             startPos, endPos = self.usrInput()
+            self.playersTurn
             try:
                 target = self.board[startPos]
             except KeyError:
@@ -53,29 +54,31 @@ class Game:
                 target = None
 
             if target:
-                if target.Color != self.playersTurn:
+                if target.color != self.playersTurn:
                     print("It's not your turn")
                     continue
-                if target.isValid(startPos, endPos, target.Color, self.board):
+                if target.isValid(startPos, endPos, target.color, self.board):
+                    # auto check
+                    # update position
                     self.board[endPos] = self.board[startPos]
                     del self.board[startPos]
+                    # is check
                     self.isCheck()
-
-                    if self.playersTurn == SENTE:
-                        self.playersTurn = GOTE
-                    else:
-                        self.playersTurn = SENTE
+                    # change turn
+                    self.changeTurn()
                 else:
                     print("invalid move")
-            else:
-                print("try again")
+            # else:
+            #    print("try again")
 
     def isCheck(self):
         uniKing = {}
         pieceUni = {SENTE: [], GOTE: []}
         for position, piece in self.board.items():
             if type(piece) == K:
-                uniKing[piece.Color] = position
+                uniKing[piece.color] = position
+            pieceUni[piece.color].append((piece, position))
+        # print(pieceUni)
         # white
         if self.seeKing(uniKing[GOTE], pieceUni[SENTE]):
             print("Gote player is in check")
@@ -84,18 +87,8 @@ class Game:
 
     def seeKing(self, kingPos, pieceList):
         for piece, position in pieceList:
-            if piece.isValid(position, kingPos, piece.Color, self.board):
+            if piece.isValid(position, kingPos, piece.color, self.board):
                 return True
-
-    def usrInput(self):  # Input from user
-        try:
-            a, b = input().split()
-            a = ((ord(a[0])-97), int(a[1])-1)
-            b = (ord(b[0])-97, int(b[1])-1)
-            return (a, b)
-        except ValueError:
-            print("error decoding input.")
-            return((-1, -1), (-1, -1))
 
     def printBoard(self):
         print("    1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |")
@@ -107,16 +100,37 @@ class Game:
                 print(str(item)+' |', end=" ")
             print()
 
+    def usrInput(self):  # Input from user
+        try:
+            a, b = input().split()
+            a = ((ord(a[0])-97), int(a[1])-1)
+            b = (ord(b[0])-97, int(b[1])-1)
+            return (a, b)
+        except ValueError:
+            print("error decoding input.")
+            return((-1, -1), (-1, -1))
+        except IndexError:
+            print("invalid input, try again")
+            return((-1, -1), (-1, -1))
+
+    def changeTurn(self):
+        if self.playersTurn == SENTE:
+            self.playersTurn = GOTE
+        else:
+            self.playersTurn = SENTE
+
 
 class Piece:
 
     def __init__(self, color, name):
+        self.color = color
         self.name = name
         self.position = None
-        self.Color = color
 
-    def isValid(self, startPos, endPos, Color, board):
-        if endPos in self.isMove(startPos[0], startPos[1], board, Color=Color):
+    def isValid(self, startPos, endPos, color, board):
+        # if endPos (in self.isMove(startPos[0], startPos[1], board, color=Color) and isAutoCheck():
+        # Chequea que endPos sea un movimiento permitido por la pieza
+        if endPos in self.isMove(startPos[0], startPos[1], board, color=color):
             return True
         return False
 
@@ -129,7 +143,7 @@ class Piece:
     def isMove(self, y, x, board):
         print("ERROR movement")
 
-    def lineMove(self, y, x, board, Color, intervals):
+    def lineMove(self, y, x, board, color, intervals):
         movement = []
         for yint, xint in intervals:
             ytemp, xtemp = y+yint, x+xint
@@ -137,7 +151,7 @@ class Piece:
                 target = board.get((ytemp, xtemp), None)
                 if target is None:
                     movement.append((ytemp, xtemp))
-                elif target.Color != Color:
+                elif target.color != color:
                     movement.append((ytemp, xtemp))
                     break
                 else:
@@ -151,7 +165,7 @@ class Piece:
         return False
 
     def noConflict(self, board, initialColor, y, x):  # Checks position poses no conflict to the rules
-        if self.isInBoard(y, x) and (((y, x) not in board) or board[(y, x)].Color != initialColor):
+        if self.isInBoard(y, x) and (((y, x) not in board) or board[(y, x)].color != initialColor):
             return True
         return False
 
@@ -162,116 +176,116 @@ lineDiagonals = [(1, 1), (-1, 1), (1, -1), (-1, -1)]
 
 class K(Piece):  # King
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
 
     def kingMoves(self, y, x):
         return [(y, x-1), (y-1, x-1), (y-1, x), (y-1, x+1), (y, x+1), (y+1, x+1), (y+1, x), (y+1, x-1)]
 
-    def isMove(self, y, x, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return [(yy, xx) for yy, xx in self.kingMoves(y, x) if self.noConflict(board, Color, yy, xx)]
+    def isMove(self, y, x, board, color=None):
+        if color is None:
+            color = self.color
+        return [(yy, xx) for yy, xx in self.kingMoves(y, x) if self.noConflict(board, color, yy, xx)]
 
 
 class G(Piece):  # Gold
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
 
     def goldMoves(self, y, x):
         return [(y, x+self.direction), (y-1, x+self.direction), (y-1, x), (y, x-self.direction), (y+1, x), (y+1, x+self.direction)]
 
-    def isMove(self, y, x, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return [(yy, xx) for yy, xx in self.goldMoves(y, x) if self.noConflict(board, Color, yy, xx)]
+    def isMove(self, y, x, board, color=None):
+        if color is None:
+            color = self.color
+        return [(yy, xx) for yy, xx in self.goldMoves(y, x) if self.noConflict(board, color, yy, xx)]
 
 
 class S(Piece):  # Silver
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
 
     def silverMoves(self, y, x):
         return [(y, x+self.direction), (y-1, x+self.direction), (y-1, x-self.direction), (y+1, x-self.direction), (y+1, x+self.direction)]
 
-    def isMove(self, y, x, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return [(yy, xx) for yy, xx in self.silverMoves(y, x) if self.noConflict(board, Color, yy, xx)]
+    def isMove(self, y, x, board, color=None):
+        if color is None:
+            color = self.color
+        return [(yy, xx) for yy, xx in self.silverMoves(y, x) if self.noConflict(board, color, yy, xx)]
 
 
-class N(Piece):
+class N(Piece):  # Knight
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
 
     def knightMoves(self, y, x):
         return [(y+1, x+self.direction+self.direction), (y-1, x+self.direction+self.direction)]
 
-    def isMove(self, x, y, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return [(xx, yy) for xx, yy in self.knightMoves(x, y) if self.noConflict(board, Color, xx, yy)]
+    def isMove(self, x, y, board, color=None):
+        if color is None:
+            color = self.color
+        return [(xx, yy) for xx, yy in self.knightMoves(x, y) if self.noConflict(board, color, xx, yy)]
 
 
 class L(Piece):  # Lance
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
         self.lineLance = [(0, self.direction)]
 
-    def isMove(self, y, x, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return self.lineMove(y, x, board, Color, self.lineLance)
+    def isMove(self, y, x, board, color=None):
+        if color is None:
+            color = self.color
+        return self.lineMove(y, x, board, color, self.lineLance)
 
 
 class R(Piece):  # Rook
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
         self.lineRook = lineCardinals
 
-    def isMove(self, y, x, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return self.lineMove(y, x, board, Color, self.lineRook)
+    def isMove(self, y, x, board, color=None):
+        if color is None:
+            color = self.color
+        return self.lineMove(y, x, board, color, self.lineRook)
 
 
 class B(Piece):  # Bishop
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
         self.lineBishop = lineDiagonals
 
-    def isMove(self, y, x, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return self.lineMove(y, x, board, Color, self.lineBishop)
+    def isMove(self, y, x, board, color=None):
+        if color is None:
+            color = self.color
+        return self.lineMove(y, x, board, color, self.lineBishop)
 
 
 class P(Piece):  # Pawn
     def __init__(self, color, name, direction):
+        self.color = color
         self.name = name
-        self.Color = color
         self.direction = direction
 
     def pawnMoves(self, y, x):
         return [(y, x+self.direction)]
 
-    def isMove(self, y, x, board, Color=None):
-        if Color is None:
-            Color = self.Color
-        return [(yy, xx) for yy, xx in self.pawnMoves(y, x) if self.noConflict(board, Color, yy, xx)]
+    def isMove(self, y, x, board, color=None):
+        if color is None:
+            color = self.color
+        return [(yy, xx) for yy, xx in self.pawnMoves(y, x) if self.noConflict(board, color, yy, xx)]
 
 
 uniPieces = {GOTE: {K: "k", G: "g", S: "s", N: "n", L: "l", B: "b", R: "r", P: "p"}, SENTE: {K: "K", G: "G", S: "S", N: "N", L: "L", B: "B", R: "R", P: "P"}}
